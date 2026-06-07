@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mortgage calculator</title>
+<style>
+:root{ color-scheme: dark;
+  --bg:#191919; --card:#202020; --ink:#e9e7e3; --muted:#979592;
+  --line:#2c322c; --bronze:#79b289; --bronze-soft:#1e2920; --green:#6fa07d; --red:#bd6660;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;padding:16px;}
+.wrap{max-width:680px;margin:0 auto}
+h1{font-size:17px;margin:0 0 4px;display:flex;gap:8px;align-items:center}
+.sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--bronze);margin:0 0 6px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.row{grid-template-columns:1fr}}
+input[type=number]{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);
+  border-radius:8px;padding:8px 10px;font-size:14px;font-variant-numeric:tabular-nums}
+input[type=number]:focus{outline:none;border-color:var(--bronze)}
+.sliderbox{margin-top:4px}
+input[type=range]{width:100%;accent-color:var(--bronze);margin:8px 0 2px}
+.slider-val{display:flex;justify-content:space-between;font-size:13px}
+.slider-val b{color:var(--bronze)}
+.out{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:520px){.out{grid-template-columns:1fr}}
+.stat{background:var(--bronze-soft);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.stat .n{font-size:17px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+.total{grid-column:1 / -1;background:linear-gradient(120deg,#22301f,#1a231c);border-color:#2e3a30}
+.total .n{font-size:22px;color:var(--bronze)}
+.note{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
+.ok{color:var(--green)} .warn{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏠 Mortgage calculator</h1>
+  <div class="sub">Goal: buy a house — Swiss financing model (SARON/fix indicative)</div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Property value (CHF)</label>
+        <input type="number" id="value" value="1300000" step="10000" min="100000">
+      </div>
+      <div>
+        <label>Interest rate (% / year)</label>
+        <input type="number" id="rate" value="1.5" step="0.05" min="0.1" max="6">
+      </div>
+    </div>
+    <div class="sliderbox">
+      <label style="margin-top:12px">Cash in (down payment)</label>
+      <input type="range" id="down" min="10" max="50" step="1" value="20">
+      <div class="slider-val"><span id="downPct">20%</span><b id="downChf">CHF 260’000</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="out">
+      <div class="stat"><div class="l">Mortgage (loan)</div><div class="n" id="loan">—</div></div>
+      <div class="stat"><div class="l">2nd mortgage (amortized 15y)</div><div class="n" id="second">—</div></div>
+      <div class="stat"><div class="l">Interest / month</div><div class="n" id="interest">—</div></div>
+      <div class="stat"><div class="l">Amortization / month</div><div class="n" id="amort">—</div></div>
+      <div class="stat"><div class="l">Maintenance (1%/y) / month</div><div class="n" id="maint">—</div></div>
+      <div class="stat"><div class="l">Required income (affordability)</div><div class="n" id="income">—</div></div>
+      <div class="stat total"><div class="l">Total cost / month</div><div class="n" id="total">—</div></div>
+    </div>
+    <div class="note" id="note"></div>
+  </div>
+</div>
+
+<script>
+const fmt=n=>"CHF "+Math.round(n).toLocaleString("de-CH");
+function calc(){
+  const value=+document.getElementById("value").value||0;
+  const rate=(+document.getElementById("rate").value||0)/100;
+  const pct=(+document.getElementById("down").value)/100;
+  const down=value*pct;
+  const loan=value-down;
+  const second=Math.max(0,loan-0.65*value);
+  const interestM=loan*rate/12;
+  const amortM=second>0?second/(15*12):0;
+  const maintM=value*0.01/12;
+  const totalM=interestM+amortM+maintM;
+  const imputed=loan*0.05+amortM*12+value*0.01;
+  const reqIncome=imputed/0.33;
+  document.getElementById("downPct").textContent=Math.round(pct*100)+"%";
+  document.getElementById("downChf").textContent=fmt(down);
+  document.getElementById("loan").textContent=fmt(loan);
+  document.getElementById("second").textContent=fmt(second);
+  document.getElementById("interest").textContent=fmt(interestM);
+  document.getElementById("amort").textContent=fmt(amortM);
+  document.getElementById("maint").textContent=fmt(maintM);
+  document.getElementById("total").textContent=fmt(totalM);
+  document.getElementById("income").textContent=fmt(reqIncome)+" / y";
+  const minCash=pct>=0.2;
+  document.getElementById("note").innerHTML=
+    (minCash?'<span class="ok">✅ Meets the Swiss 20% minimum down payment.</span>'
+            :'<span class="warn">⚠️ Below the Swiss 20% minimum — banks require ≥20% (≥10% in hard cash, rest can be pillar 2/3).</span>')
+    +"<br>Affordability rule: costs at an imputed 5% rate must stay under ~33% of gross income. Indicative only — not financial advice.";
+}
+["value","rate","down"].forEach(id=>document.getElementById(id).addEventListener("input",calc));
+calc();
+</script>
+</body>
+</html>
